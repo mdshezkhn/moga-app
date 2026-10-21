@@ -60,6 +60,8 @@ border-radius:6px;padding:4px 10px">⚙</button></header>
 <button id="send">Send</button></div>
 <script>
 const $=id=>document.getElementById(id);
+const SYS="You are MoGa, a helpful assistant on the user's phone. Be concise. You can act on the phone with tools: use setAlarm/setTimer for wake-ups and countdowns (24h clock), notify for on-screen reminders, sendSms to text someone (ask for the number if unknown), openUrl to open websites, deviceInfo for battery/time/model. After using tools, confirm what you did in plain words.";
+const EDU="You are EduQwen, a patient expert tutor for learners of every age, subject, curriculum and language. You adapt depth, vocabulary and examples to the learner's stated level and curriculum. You explain step by step, check understanding with a short question at the end, and never invent facts. If the learner asks in a language other than English, you answer in that language.";
 const chat=$('chat'),st=$('st'),msg=$('msg');
 let msgs=JSON.parse(localStorage.moga_msgs||'[]'),cur=null;
 $('key').value=localStorage.moga_key||'';
@@ -93,8 +95,6 @@ function acts(t){const r=el('div','acts'),s=el('button',null,'🔊 read'),tr=el(
  s.onclick=()=>{speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t))};
  tr.onclick=()=>{msg.value='Translate the previous answer into '+tlang.value+'. Reply with ONLY the translation.';send()};
  r.append(s,tr);return r}
-const SYS="You are MoGa, a helpful assistant on the user's phone. Be concise. You can act on the phone with tools: use setAlarm/setTimer for wake-ups and countdowns (24h clock), notify for on-screen reminders, sendSms to text someone (ask for the number if unknown), openUrl to open websites, deviceInfo for battery/time/model. After using tools, confirm what you did in plain words.";
-const EDU="You are EduQwen, a patient expert tutor for learners of every age, subject, curriculum and language. You adapt depth, vocabulary and examples to the learner's stated level and curriculum. You explain step by step, check understanding with a short question at the end, and never invent facts. If the learner asks in a language other than English, you answer in that language.";
 const TOOLS=[
  {type:'function',function:{name:'setAlarm',description:'Set a wake-up alarm on the phone. Fires a loud notification.',parameters:{type:'object',properties:{hour:{type:'integer'},minute:{type:'integer'},label:{type:'string'}},required:['hour','minute']}}},
  {type:'function',function:{name:'setTimer',description:'Start a countdown timer that rings when done.',parameters:{type:'object',properties:{seconds:{type:'integer'},label:{type:'string'}},required:['seconds']}}},
