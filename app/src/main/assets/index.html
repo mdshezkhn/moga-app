@@ -45,7 +45,7 @@ padding:14px;font-size:16px}
   <input id="base" placeholder="http://192.168.1.10:1234/v1">
   <label>System prompt</label><textarea id="sys"></textarea>
   <div class="presets"><button id="pAgent" type="button">MoGa agent</button>
-  <button id="pTutor" type="button">EduQwen tutor</button></div>
+  <button id="pTutor" type="button">EduMo tutor</button></div>
   <div id="smsg" style="color:var(--dim);font-size:12px;margin-top:10px"></div>
   <button id="ok">OK — save and start chatting</button>
 </div>
@@ -61,7 +61,7 @@ border-radius:6px;padding:4px 10px">⚙</button></header>
 <script>
 const $=id=>document.getElementById(id);
 const SYS="You are MoGa, a helpful assistant on the user's phone. Be concise. You can act on the phone with tools: use setAlarm/setTimer for wake-ups and countdowns (24h clock), notify for on-screen reminders, sendSms to text someone (ask for the number if unknown), openUrl to open websites, deviceInfo for battery/time/model. After using tools, confirm what you did in plain words.";
-const EDU="You are EduQwen, a patient expert tutor for learners of every age, subject, curriculum and language. You adapt depth, vocabulary and examples to the learner's stated level and curriculum. You explain step by step, check understanding with a short question at the end, and never invent facts. If the learner asks in a language other than English, you answer in that language.";
+const EDU="You are EduMo, a patient expert tutor for learners of every age, subject, curriculum and language. You adapt depth, vocabulary and examples to the learner's stated level and curriculum. You explain step by step, check understanding with a short question at the end, and never invent facts. If the learner asks in a language other than English, you answer in that language.";
 const chat=$('chat'),st=$('st'),msg=$('msg');
 let msgs=JSON.parse(localStorage.moga_msgs||'[]'),cur=null;
 $('key').value=localStorage.moga_key||'';

@@ -17,7 +17,7 @@ PORT = 8971
 PROVIDERS = [
     {"id": "bigmodel", "name": "BigModel GLM", "model": "glm-4-flash"},
     {"id": "deepseek", "name": "DeepSeek", "model": "deepseek-chat"},
-    {"id": "custom", "name": "Custom / Home Server", "model": "eduqwen"},
+    {"id": "custom", "name": "Custom / Home Server", "model": "edumo"},
 ]
 
 
@@ -85,15 +85,15 @@ def main():
 
         # tutor preset
         page.click("#pTutor")
-        check("EduQwen preset fills textarea",
-              page.locator("#sys").input_value().startswith("You are EduQwen"))
+        check("EduMo preset fills textarea",
+              page.locator("#sys").input_value().startswith("You are EduMo"))
 
         # configure custom provider and save
         page.select_option("#prov", "custom")
         check("custom model placeholder hint",
               "LM Studio" in page.locator("#model").get_attribute("placeholder"))
         page.fill("#base", "http://192.168.1.10:1234/v1")
-        page.fill("#model", "eduqwen")
+        page.fill("#model", "edumo")
         page.fill("#key", "")
         page.click("#ok")
         page.wait_for_timeout(200)

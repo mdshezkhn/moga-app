@@ -25,7 +25,7 @@ public class MoGaServer extends NanoHTTPD {
         PROVIDERS.put("gemini",    new String[]{"Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-2.5-flash"});
         PROVIDERS.put("groq",      new String[]{"Groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"});
         PROVIDERS.put("deepseek",  new String[]{"DeepSeek", "https://api.deepseek.com/v1", "deepseek-chat"});
-        PROVIDERS.put("custom",    new String[]{"Custom / Home Server", "http://192.168.1.10:1234/v1", "eduqwen"});
+        PROVIDERS.put("custom",    new String[]{"Custom / Home Server", "http://192.168.1.10:1234/v1", "edumo"});
     }
 
     private final Context ctx;
