@@ -25,6 +25,7 @@ public class MoGaServer extends NanoHTTPD {
         PROVIDERS.put("gemini",    new String[]{"Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-2.5-flash"});
         PROVIDERS.put("groq",      new String[]{"Groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"});
         PROVIDERS.put("deepseek",  new String[]{"DeepSeek", "https://api.deepseek.com/v1", "deepseek-chat"});
+        PROVIDERS.put("custom",    new String[]{"Custom / Home Server", "http://192.168.1.10:1234/v1", "eduqwen"});
     }
 
     private final Context ctx;
@@ -88,7 +89,14 @@ public class MoGaServer extends NanoHTTPD {
         String key = extract(json, "key");
         String messages = extractArray(json, "messages");
         String[] p = PROVIDERS.get(provider == null ? "bigmodel" : provider);
+        if (p == null) { provider = "bigmodel"; p = PROVIDERS.get(provider); }
         String base = p[1];
+        boolean custom = "custom".equals(provider);
+        if (custom) {   // self-hosted server (LM Studio / Ollama / vLLM): URL from settings
+            String b = extract(json, "base");
+            if (b != null && !b.isEmpty()) base = b;
+        }
+        if (!base.startsWith("http://") && !base.startsWith("https://")) base = "http://" + base;
         model = (model == null || model.isEmpty()) ? p[2] : model;
 
         URL url = new URL(base.replaceAll("/+$", "") + "/chat/completions");
@@ -97,7 +105,7 @@ public class MoGaServer extends NanoHTTPD {
         c.setDoOutput(true);
         c.setDoInput(true);
         c.setConnectTimeout(20000);
-        c.setReadTimeout(120000);
+        c.setReadTimeout(custom ? 300000 : 120000);   // local CPU models are slow
         c.setRequestProperty("Content-Type", "application/json");
         c.setRequestProperty("Authorization", "Bearer " + key);
         String tools = extractArray(json, "tools");

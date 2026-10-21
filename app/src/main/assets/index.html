@@ -28,6 +28,11 @@ flex-direction:column;padding:24px 20px}
 color:var(--dim);font-size:12px;margin:14px 0 4px}
 #settings select,#settings input{width:100%;background:var(--panel);color:var(--text);
 border:1px solid var(--line);border-radius:8px;padding:12px;font-size:15px}
+#settings textarea{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);
+border-radius:8px;padding:12px;font-size:15px;min-height:96px}
+.presets{display:flex;gap:8px;margin-top:6px}
+.presets button{flex:1;background:var(--panel);color:var(--dim);border:1px solid var(--line);
+border-radius:6px;padding:7px;font-size:12px}
 #ok{margin-top:26px;background:var(--ac);color:#fff;border:0;border-radius:8px;
 padding:14px;font-size:16px}
 </style></head><body>
@@ -35,7 +40,12 @@ padding:14px;font-size:16px}
   <h2>MoGa settings</h2>
   <label>Provider</label><select id="prov"></select>
   <label>Model (blank = provider default)</label><input id="model">
-  <label>API key</label><input id="key" type="password">
+  <label>API key (not needed for Custom)</label><input id="key" type="password">
+  <label>Custom server URL - Custom provider only</label>
+  <input id="base" placeholder="http://192.168.1.10:1234/v1">
+  <label>System prompt</label><textarea id="sys"></textarea>
+  <div class="presets"><button id="pAgent" type="button">MoGa agent</button>
+  <button id="pTutor" type="button">EduQwen tutor</button></div>
   <div id="smsg" style="color:var(--dim);font-size:12px;margin-top:10px"></div>
   <button id="ok">OK — save and start chatting</button>
 </div>
@@ -54,12 +64,22 @@ const chat=$('chat'),st=$('st'),msg=$('msg');
 let msgs=JSON.parse(localStorage.moga_msgs||'[]'),cur=null;
 $('key').value=localStorage.moga_key||'';
 $('model').value=localStorage.moga_model||'';
+$('base').value=localStorage.moga_base||'';
+$('sys').value=localStorage.moga_sys||SYS;
+$('pAgent').onclick=()=>{$('sys').value=SYS};
+$('pTutor').onclick=()=>{$('sys').value=EDU};
 function openSettings(){$('settings').style.display='flex';$('smsg').textContent='';}
 function closeSettings(){
- if(!$('key').value.trim()){$('smsg').textContent='An API key is required.';return}
+ const prov=$('prov').value;
+ if(prov!='custom' && !$('key').value.trim()){$('smsg').textContent='An API key is required.';return}
+ if(prov=='custom'){
+  if(!$('base').value.trim()){$('smsg').textContent='Custom provider needs the server URL (e.g. http://192.168.1.10:1234/v1).';return}
+  if(!$('model').value.trim()){$('smsg').textContent='Custom provider needs the model name as shown in LM Studio / Ollama.';return}}
  localStorage.moga_key=$('key').value.trim();
  localStorage.moga_model=$('model').value.trim();
- localStorage.moga_prov=$('prov').value;
+ localStorage.moga_base=$('base').value.trim();
+ localStorage.moga_sys=$('sys').value;
+ localStorage.moga_prov=prov;
  $('settings').style.display='none';}
 $('ok').onclick=closeSettings;$('gear').onclick=openSettings;
 function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
@@ -74,6 +94,7 @@ function acts(t){const r=el('div','acts'),s=el('button',null,'🔊 read'),tr=el(
  tr.onclick=()=>{msg.value='Translate the previous answer into '+tlang.value+'. Reply with ONLY the translation.';send()};
  r.append(s,tr);return r}
 const SYS="You are MoGa, a helpful assistant on the user's phone. Be concise. You can act on the phone with tools: use setAlarm/setTimer for wake-ups and countdowns (24h clock), notify for on-screen reminders, sendSms to text someone (ask for the number if unknown), openUrl to open websites, deviceInfo for battery/time/model. After using tools, confirm what you did in plain words.";
+const EDU="You are EduQwen, a patient expert tutor for learners of every age, subject, curriculum and language. You adapt depth, vocabulary and examples to the learner's stated level and curriculum. You explain step by step, check understanding with a short question at the end, and never invent facts. If the learner asks in a language other than English, you answer in that language.";
 const TOOLS=[
  {type:'function',function:{name:'setAlarm',description:'Set a wake-up alarm on the phone. Fires a loud notification.',parameters:{type:'object',properties:{hour:{type:'integer'},minute:{type:'integer'},label:{type:'string'}},required:['hour','minute']}}},
  {type:'function',function:{name:'setTimer',description:'Start a countdown timer that rings when done.',parameters:{type:'object',properties:{seconds:{type:'integer'},label:{type:'string'}},required:['seconds']}}},
@@ -97,17 +118,21 @@ let busy=false;
 async function send(){
  const text=msg.value.trim();
  if(!text||busy)return;
- if(!localStorage.moga_key){openSettings();return}
+ const prov=localStorage.moga_prov;
+ if(!localStorage.moga_key && prov!='custom'){openSettings();return}
+ if(prov=='custom' && (!localStorage.moga_base||!localStorage.moga_model)){
+  openSettings();$('smsg').textContent='Custom provider needs server URL and model name.';return}
  busy=true;msg.value='';st.textContent='thinking…';
  msgs.push({r:'u',t:text});render();
  const hist=msgs.filter(m=>!m.t.startsWith('Error')).slice(-8).map(m=>({role:m.r=='u'?'user':'assistant',content:m.t}));
- const api=[{role:'system',content:SYS}].concat(hist);
+ const api=[{role:'system',content:localStorage.moga_sys||SYS}].concat(hist);
  let out=null;
  try{
   for(let loop=0;loop<5;loop++){
    const r=await fetch('/api/llm',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({provider:localStorage.moga_prov,model:localStorage.moga_model,
-     key:localStorage.moga_key,messages:api,tools:TOOLS})});
+    body:JSON.stringify({provider:prov,model:localStorage.moga_model,
+     key:localStorage.moga_key,messages:api,base:localStorage.moga_base||'',
+     tools:prov=='custom'?[]:TOOLS})});
    const d=await r.json();
    if(!d.choices){out='Error '+r.status+': '+(d.error?(d.error.message||JSON.stringify(d.error)).slice(0,200):'bad response')+' - check gear settings';break}
    const m=d.choices[0].message;
@@ -151,7 +176,10 @@ fetch('/api/providers').then(r=>r.json()).then(l=>{
  const s=$('prov');l.forEach(p=>{const o=document.createElement('option');
   o.value=p.id;o.textContent=p.id;s.appendChild(o)});
  s.value=localStorage.moga_prov||'bigmodel';
- $('model').placeholder='default: '+l.find(x=>x.id==s.value).model;
+ const ph=()=>{$('model').placeholder=s.value=='custom'
+  ?'required - model name in LM Studio / Ollama'
+  :'default: '+l.find(x=>x.id==s.value).model};
+ ph();s.onchange=ph;
  if(!localStorage.moga_key)openSettings();});
 render();
 </script></body></html>
