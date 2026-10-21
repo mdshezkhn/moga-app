@@ -31,7 +31,11 @@ public class MoGaServer extends NanoHTTPD {
     private final Context ctx;
 
     public MoGaServer(Context ctx) {
-        super(8080);
+        this(ctx, 8080);
+    }
+
+    public MoGaServer(Context ctx, int port) {
+        super(port);
         this.ctx = ctx;
     }
 
