@@ -48,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
             body.get("provider"), body.get("model"), len(body.get("tools") or []),
             body.get("base"), (body.get("messages") or [{}])[0].get("content", "")[:40]))
         self._send(200, json.dumps(
-            {"choices": [{"message": {"content": "This is a stub tutor reply."}}]}))
+            {"choices": [{"message": {"content": "</think>\n\nThis is a stub tutor reply."}}]}))
 
 
 def main():
@@ -107,8 +107,9 @@ def main():
         page.fill("#msg", "What is a fraction?")
         page.click("#send")
         page.wait_for_timeout(800)
-        check("chat round-trip works",
-              "stub tutor reply" in page.inner_text("#chat"))
+        chat_text = page.inner_text("#chat")
+        check("chat round-trip works", "stub tutor reply" in chat_text)
+        check("reasoning tag stripped for custom provider", "</think>" not in chat_text)
 
         browser.close()
     srv.shutdown()
