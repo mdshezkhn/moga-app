@@ -41,6 +41,7 @@ public class MainActivity extends Activity {
                 }
             }
             web.addJavascriptInterface(new MoGaSpeech(this, web), "MoGaSpeech");
+            web.addJavascriptInterface(new MoGaActions(this), "MoGaActions");
         } catch (Throwable t) {
             err = android.util.Log.getStackTraceString(t);
         }
@@ -56,7 +57,7 @@ public class MainActivity extends Activity {
         }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.SEND_SMS}, 1);
         web.loadUrl("http://127.0.0.1:8080/");
     }
 

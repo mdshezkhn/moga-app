@@ -100,7 +100,9 @@ public class MoGaServer extends NanoHTTPD {
         c.setReadTimeout(120000);
         c.setRequestProperty("Content-Type", "application/json");
         c.setRequestProperty("Authorization", "Bearer " + key);
-        String payload = "{\"model\":\"" + model + "\",\"messages\":" + messages + "}";
+        String tools = extractArray(json, "tools");
+        String payload = "{\"model\":\"" + model + "\",\"messages\":" + messages
+                + (tools.equals("[]") ? "" : ",\"tools\":" + tools) + "}";
         try (OutputStream os = c.getOutputStream()) {
             os.write(payload.getBytes(StandardCharsets.UTF_8));
         }
