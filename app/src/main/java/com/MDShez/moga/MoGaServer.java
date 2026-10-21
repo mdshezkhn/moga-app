@@ -88,7 +88,7 @@ public class MoGaServer extends NanoHTTPD {
         String provider = extract(json, "provider");
         String model = extract(json, "model");
         String key = extract(json, "key");
-        String messages = json.substring(json.indexOf("\"messages\"") + 10).replaceFirst("\\]$", "]");
+        String messages = extractArray(json, "messages");   // bracket-matched, safe
         String[] p = PROVIDERS.get(provider == null ? "bigmodel" : provider);
         String base = p[1];
         model = (model == null || model.isEmpty()) ? p[2] : model;
@@ -113,6 +113,28 @@ public class MoGaServer extends NanoHTTPD {
         while ((line = r.readLine()) != null) sb.append(line);
         r.close();
         return newFixedLengthResponse(Response.Status.lookup(code), "application/json", sb.toString());
+    }
+
+    /** Extract a top-level JSON array value (bracket-matched, string-aware). */
+    private static String extractArray(String json, String field) {
+        int i = json.indexOf("\"" + field + "\"");
+        if (i < 0) return "[]";
+        int start = json.indexOf('[', i);
+        if (start < 0) return "[]";
+        int depth = 0;
+        boolean inStr = false;
+        for (int pos = start; pos < json.length(); pos++) {
+            char ch = json.charAt(pos);
+            if (inStr) {
+                if (ch == '\') pos++;
+                else if (ch == '"') inStr = false;
+            } else {
+                if (ch == '"') inStr = true;
+                else if (ch == '[') depth++;
+                else if (ch == ']') { depth--; if (depth == 0) return json.substring(start, pos + 1); }
+            }
+        }
+        return "[]";
     }
 
     private static String extract(String json, String field) {
