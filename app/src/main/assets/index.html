@@ -98,9 +98,21 @@ async function send(){
 }
 document.getElementById('send').onclick=()=>send();
 msg.addEventListener('keydown',e=>{if(e.key=='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec,listening=false;
-mic.onclick=()=>{if(!SR){alert('Voice input not supported here');return}
- if(listening){rec.stop();return}rec=new SR();
+let rec=null,listening=false;
+/* native bridge first (Android SpeechRecognizer via MoGaSpeech), browser SR fallback */
+window.moGaSpeechResult=function(t){
+ if(!t)return;
+ if(t.indexOf('__error__')===0){listening=false;mic.textContent='🎙';st.textContent=t.slice(9);return}
+ if(t==='__listening__'){listening=true;mic.textContent='⏺';st.textContent='listening… speak now';return}
+ msg.value=t;listening=false;mic.textContent='🎙';st.textContent='';
+};
+mic.onclick=()=>{
+ if(listening){if(window.MoGaSpeech)MoGaSpeech.stop();else if(rec)rec.stop();
+  listening=false;mic.textContent='🎙';st.textContent='';return}
+ if(window.MoGaSpeech){MoGaSpeech.start();return}   /* native recognizer */
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){st.textContent='voice input not supported in this browser';return}
+ rec=new SR();
  rec.lang=tlang.value.startsWith('Chinese')?'zh-CN':tlang.value=='Hindi'?'hi-IN':tlang.value=='Arabic'?'ar-SA':tlang.value=='Spanish'?'es-ES':'en-US';
  rec.interimResults=true;rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;msg.value=t};
  rec.onend=rec.onerror=()=>{listening=false;mic.textContent='🎙'};rec.start();listening=true;mic.textContent='⏺'};

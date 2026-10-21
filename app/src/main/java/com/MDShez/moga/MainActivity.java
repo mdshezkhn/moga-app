@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.ScrollView;
@@ -22,6 +23,13 @@ public class MainActivity extends Activity {
             s.setJavaScriptEnabled(true);
             s.setDomStorageEnabled(true);
             s.setMediaPlaybackRequiresUserGesture(false);
+            // grant the page's mic requests (needed for WebView audio capture)
+            web.setWebChromeClient(new WebChromeClient() {
+                @Override
+                public void onPermissionRequest(final android.webkit.PermissionRequest request) {
+                    runOnUiThread(() -> request.grant(request.getResources()));
+                }
+            });
             setContentView(web);
             try {
                 new MoGaServer(this).start();          // port 8080
@@ -32,6 +40,7 @@ public class MainActivity extends Activity {
                     err = "server: " + bind + " / " + e2;
                 }
             }
+            web.addJavascriptInterface(new MoGaSpeech(this, web), "MoGaSpeech");
         } catch (Throwable t) {
             err = android.util.Log.getStackTraceString(t);
         }
