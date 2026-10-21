@@ -18,7 +18,6 @@ import java.util.Map;
 public class MoGaServer extends NanoHTTPD {
 
     private static final Map<String, String[]> PROVIDERS = new HashMap<>();
-    // id -> {label, base_url, default_model}
     static {
         PROVIDERS.put("bigmodel",  new String[]{"BigModel GLM", "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"});
         PROVIDERS.put("openrouter",new String[]{"OpenRouter", "https://openrouter.ai/api/v1", "deepseek/deepseek-chat"});
@@ -84,11 +83,10 @@ public class MoGaServer extends NanoHTTPD {
         Map<String, String> body = new HashMap<>();
         session.parseBody(body);
         String json = body.get("postData");
-        // crude JSON field extraction (values here are strings/arrays; keys are unique)
         String provider = extract(json, "provider");
         String model = extract(json, "model");
         String key = extract(json, "key");
-        String messages = extractArray(json, "messages");   // bracket-matched, safe
+        String messages = extractArray(json, "messages");
         String[] p = PROVIDERS.get(provider == null ? "bigmodel" : provider);
         String base = p[1];
         model = (model == null || model.isEmpty()) ? p[2] : model;
@@ -97,6 +95,7 @@ public class MoGaServer extends NanoHTTPD {
         HttpURLConnection c = (HttpURLConnection) url.openConnection();
         c.setRequestMethod("POST");
         c.setDoOutput(true);
+        c.setDoInput(true);
         c.setConnectTimeout(20000);
         c.setReadTimeout(120000);
         c.setRequestProperty("Content-Type", "application/json");
@@ -126,12 +125,15 @@ public class MoGaServer extends NanoHTTPD {
         for (int pos = start; pos < json.length(); pos++) {
             char ch = json.charAt(pos);
             if (inStr) {
-                if (ch == '\') pos++;
+                if (ch == '\\') pos++;
                 else if (ch == '"') inStr = false;
             } else {
                 if (ch == '"') inStr = true;
                 else if (ch == '[') depth++;
-                else if (ch == ']') { depth--; if (depth == 0) return json.substring(start, pos + 1); }
+                else if (ch == ']') {
+                    depth--;
+                    if (depth == 0) return json.substring(start, pos + 1);
+                }
             }
         }
         return "[]";
