@@ -107,8 +107,7 @@ async function send(){
   for(let loop=0;loop<5;loop++){
    const r=await fetch('/api/llm',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({provider:localStorage.moga_prov,model:localStorage.moga_model,
-     key:localStorage.mo
-ga_key,messages:api,tools:TOOLS})});
+     key:localStorage.moga_key,messages:api,tools:TOOLS})});
    const d=await r.json();
    if(!d.choices){out='Error '+r.status+': '+(d.error?(d.error.message||JSON.stringify(d.error)).slice(0,200):'bad response')+' - check gear settings';break}
    const m=d.choices[0].message;

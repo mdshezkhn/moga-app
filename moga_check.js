@@ -1,0 +1,106 @@
+
+const $=id=>document.getElementById(id);
+const chat=$('chat'),st=$('st'),msg=$('msg');
+let msgs=JSON.parse(localStorage.moga_msgs||'[]'),cur=null;
+$('key').value=localStorage.moga_key||'';
+$('model').value=localStorage.moga_model||'';
+function openSettings(){$('settings').style.display='flex';$('smsg').textContent='';}
+function closeSettings(){
+ if(!$('key').value.trim()){$('smsg').textContent='An API key is required.';return}
+ localStorage.moga_key=$('key').value.trim();
+ localStorage.moga_model=$('model').value.trim();
+ localStorage.moga_prov=$('prov').value;
+ $('settings').style.display='none';}
+$('ok').onclick=closeSettings;$('gear').onclick=openSettings;
+function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function scroll(){chat.scrollTop=chat.scrollHeight}
+function render(){chat.innerHTML='';for(const m of msgs){
+ if(m.r=='u'){const d=el('div','msg u');d.appendChild(el('div','b',m.t));chat.appendChild(d)}
+ else{const d=el('div','msg a'+(m.t.startsWith('Error')?' err':''));
+  d.appendChild(el('div','who','moga'));d.appendChild(el('div','b',m.t));
+  if(m.acts)d.appendChild(m.acts);chat.appendChild(d)}}scroll()}
+function acts(t){const r=el('div','acts'),s=el('button',null,'🔊 read'),tr=el('button',null,'🌐 translate');
+ s.onclick=()=>{speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t))};
+ tr.onclick=()=>{msg.value='Translate the previous answer into '+tlang.value+'. Reply with ONLY the translation.';send()};
+ r.append(s,tr);return r}
+const SYS="You are MoGa, a helpful assistant on the user's phone. Be concise. You can act on the phone with tools: use setAlarm/setTimer for wake-ups and countdowns (24h clock), notify for on-screen reminders, sendSms to text someone (ask for the number if unknown), openUrl to open websites, deviceInfo for battery/time/model. After using tools, confirm what you did in plain words.";
+const TOOLS=[
+ {type:'function',function:{name:'setAlarm',description:'Set a wake-up alarm on the phone. Fires a loud notification.',parameters:{type:'object',properties:{hour:{type:'integer'},minute:{type:'integer'},label:{type:'string'}},required:['hour','minute']}}},
+ {type:'function',function:{name:'setTimer',description:'Start a countdown timer that rings when done.',parameters:{type:'object',properties:{seconds:{type:'integer'},label:{type:'string'}},required:['seconds']}}},
+ {type:'function',function:{name:'notify',description:'Show an on-screen reminder notification now.',parameters:{type:'object',properties:{title:{type:'string'},text:{type:'string'}},required:['title','text']}}},
+ {type:'function',function:{name:'sendSms',description:'Send an SMS text message to a phone number.',parameters:{type:'object',properties:{number:{type:'string'},text:{type:'string'}},required:['number','text']}}},
+ {type:'function',function:{name:'openUrl',description:'Open a website in the browser.',parameters:{type:'object',properties:{url:{type:'string'}},required:['url']}}},
+ {type:'function',function:{name:'deviceInfo',description:'Get battery level, model, android version and current time.',parameters:{type:'object',properties:{}}}}
+];
+function runTool(name,a){
+ try{switch(name){
+  case 'setAlarm':return MoGaActions.setAlarm(a.hour|0,a.minute|0,a.label||'');
+  case 'setTimer':return MoGaActions.setTimer(a.seconds|0,a.label||'');
+  case 'notify':return MoGaActions.notify(a.title||'MoGa',a.text||'');
+  case 'sendSms':return MoGaActions.sendSms(a.number||'',a.text||'');
+  case 'openUrl':return MoGaActions.openUrl(a.url||'');
+  case 'deviceInfo':return MoGaActions.deviceInfo();
+  default:return 'Error: unknown action '+name;
+ }}catch(e){return 'Error running '+name+': '+e+' (permission may be missing)'}
+}
+let busy=false;
+async function send(){
+ const text=msg.value.trim();
+ if(!text||busy)return;
+ if(!localStorage.moga_key){openSettings();return}
+ busy=true;msg.value='';st.textContent='thinking…';
+ msgs.push({r:'u',t:text});render();
+ const hist=msgs.filter(m=>!m.t.startsWith('Error')).slice(-8).map(m=>({role:m.r=='u'?'user':'assistant',content:m.t}));
+ const api=[{role:'system',content:SYS}].concat(hist);
+ let out=null;
+ try{
+  for(let loop=0;loop<5;loop++){
+   const r=await fetch('/api/llm',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({provider:localStorage.moga_prov,model:localStorage.moga_model,
+     key:localStorage.moga_key,messages:api,tools:TOOLS})});
+   const d=await r.json();
+   if(!d.choices){out='Error '+r.status+': '+(d.error?(d.error.message||JSON.stringify(d.error)).slice(0,200):'bad response')+' - check gear settings';break}
+   const m=d.choices[0].message;
+   if(!m.tool_calls||!m.tool_calls.length){out=m.content||'';break}
+   api.push({role:'assistant',content:m.content||null,tool_calls:m.tool_calls});
+   for(const tc of m.tool_calls){
+    const name=tc.function.name;let a={};
+    try{a=JSON.parse(tc.function.arguments||'{}')}catch(e){}
+    st.textContent='doing: '+name;
+    chat.appendChild(el('div','tl','[action] '+name+' '+tc.function.arguments.slice(0,100)));scroll();
+    const res=runTool(name,a);
+    chat.appendChild(el('div','tl','[result] '+res.slice(0,120)));scroll();
+    api.push({role:'tool',tool_call_id:tc.id,content:res});
+   }
+  }
+ }catch(e){out='Error: '+e+' (check internet, then retry)'}
+ if(out===null)out='(stopped after several actions)';
+ msgs.push({r:'a',t:out,acts:acts(out)});render();
+ st.textContent='';busy=false;
+ localStorage.moga_msgs=JSON.stringify(msgs);
+}
+document.getElementById('send').onclick=()=>send();
+msg.addEventListener('keydown',e=>{if(e.key=='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+let rec=null,listening=false;
+window.moGaSpeechResult=function(t){
+ if(!t)return;
+ if(t.indexOf('__error__')===0){listening=false;mic.textContent='🎙';st.textContent=t.slice(9);return}
+ if(t==='__listening__'){listening=true;mic.textContent='⏺';st.textContent='listening... speak now';return}
+ msg.value=t;listening=false;mic.textContent='🎙';st.textContent='';};
+mic.onclick=()=>{
+ if(listening){if(window.MoGaSpeech)MoGaSpeech.stop();else if(rec)rec.stop();
+  listening=false;mic.textContent='🎙';st.textContent='';return}
+ if(window.MoGaSpeech){MoGaSpeech.start();return}
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){st.textContent='voice input not supported';return}
+ rec=new SR();
+ rec.lang=tlang.value.startsWith('Chinese')?'zh-CN':tlang.value=='Hindi'?'hi-IN':tlang.value=='Arabic'?'ar-SA':tlang.value=='Spanish'?'es-ES':'en-US';
+ rec.interimResults=true;rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;msg.value=t};
+ rec.onend=rec.onerror=()=>{listening=false;mic.textContent='🎙'};rec.start();listening=true;mic.textContent='⏺'};
+fetch('/api/providers').then(r=>r.json()).then(l=>{
+ const s=$('prov');l.forEach(p=>{const o=document.createElement('option');
+  o.value=p.id;o.textContent=p.id;s.appendChild(o)});
+ s.value=localStorage.moga_prov||'bigmodel';
+ $('model').placeholder='default: '+l.find(x=>x.id==s.value).model;
+ if(!localStorage.moga_key)openSettings();});
+render();
